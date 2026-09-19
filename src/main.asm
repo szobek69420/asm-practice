@@ -9,6 +9,10 @@ section .rodata use32
 	test_text db "sussy nigga",0
 	test_text2 db "amogus %s nigga",0
 	test_text3 db "%d bomboclat pussywagon chicken nuggets",0
+	test_text4 db "hello neighbour %f",0
+	test_text5 db "my name is %c",0
+	
+	sus dd -6744.06742
 	
 section .bss use32
 	string_buffer resb 200
@@ -29,8 +33,8 @@ section .text use32
 		sub esp, 4		;string length
 	
 		
-		push -1234213
-		push test_text3
+		push 97
+		push test_text5
 		call printf
 		add esp, 8
 

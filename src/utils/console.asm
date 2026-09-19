@@ -7,11 +7,15 @@
 
 section .rodata use32
 	printf_argument_format_string db "%s"
+	printf_argument_format_char db "%c"
 	printf_argument_format_signed_int db "%d"
+	printf_argument_format_float db "%f"
 
 	printf_arguments:	;format string, format string length, argument length
 	dd printf_argument_format_string, 2, 4
+	dd printf_argument_format_char, 2, 4
 	dd printf_argument_format_signed_int, 2, 4
+	dd printf_argument_format_float, 2, 4
 	dd 0
 	
 	error_invalid_format_string db "printf: Invalid format string",10,0

@@ -1,16 +1,22 @@
 [BITS 32]
 
 section .rodata use32
+	PRINTF_FLOAT_PRECISION equ 3
 	
 	insert_string_format db "%s",0
+	insert_char_format db "%c",0
 	insert_signed_int_format db "%d",0
+	insert_float_format db "%f",0
 	
 	insert_handlers:	;int insert_handler(char* buffer, void* addrInsertee), returns the number of new characters in the buffer
 		;handler, format string length, format string address, insertee length
 		dd sprintf_insertString_internal, 2, insert_string_format, 4
+		dd sprintf_insertChar_internal, 2, insert_char_format, 4		;note that a char is also 4 bytes in the argument list
 		dd sprintf_insertSignedInt_internal, 2, insert_signed_int_format, 4
+		dd sprintf_insertFloat_internal, 2, insert_float_format, 4
 		dd 0
 	
+	P10 dd 0.1
 
 section .text use32
 
@@ -144,6 +150,17 @@ section .text use32
 		ret
 		
 		
+sprintf_insertChar_internal:
+	mov edx, dword[esp+4]
+	mov ecx, dword[esp+8]
+	mov ecx, dword[ecx]
+	mov byte[edx], cl
+	
+	mov eax, 1
+
+	ret
+	
+		
 sprintf_insertSignedInt_internal:
 	push ebp
 	push esi
@@ -234,3 +251,156 @@ sprintf_insertSignedInt_internal:
 	ret
 	sprintf_insertSignedInt_internal_print_string db "%s",0
 	sprintf_insertSignedInt_internal_int_min_text db "-2147483648",0
+	
+	
+sprintf_insertFloat_internal:
+	push ebp
+	push esi
+	push edi
+	push ebx
+	mov ebp, esp
+	
+	sub esp, 4		;multiplier for the sussy
+	sub esp, 4		;number
+	sub esp, 4		;printed characters
+	sub esp, 4		;helper character counter
+	sub esp, 4		;helper
+
+	mov dword[ebp-12], 0
+	mov dword[ebp-16], 0
+	
+	mov eax, dword[ebp+24]
+	mov eax, dword[eax]
+	mov dword[ebp-8], eax
+	
+	;calculate the display precision
+	mov eax, PRINTF_FLOAT_PRECISION
+	mov ecx, 1
+	cmp eax, 0
+	jle sprintf_insertFloat_internal_precision_loop_end
+	sprintf_insertFloat_internal_precision_loop_start:
+		imul ecx, 10
+		dec eax
+		jnz sprintf_insertFloat_internal_precision_loop_start
+	sprintf_insertFloat_internal_precision_loop_end:
+	cvtsi2ss xmm0, ecx
+	movss dword[ebp-4], xmm0
+	
+	;check if niggative
+	test dword[ebp-8], 0x80000000
+	jz sprintf_insertFloat_internal_skip_negative
+		mov eax, dword[ebp+20]
+		mov byte[eax], '-'
+		inc dword[ebp+20]
+		and dword[ebp-8], 0x7fffffff
+		
+		inc dword[ebp-12]
+	sprintf_insertFloat_internal_skip_negative:
+	
+	;print the whole part
+	mov dword[ebp-16], 0
+	mov edi, dword[ebp+20]
+	movss xmm0, dword[ebp-8]
+	roundss xmm0, xmm0, 0b0001
+	cvtss2si eax, xmm0
+	sprintf_insertFlat_internal_whole_loop_start:
+		xor edx, edx
+		mov ecx, 10
+		idiv ecx
+		
+		add dl, '0'
+		mov byte[edi], dl
+		inc edi
+		inc dword[ebp-12]
+		inc dword[ebp-16]
+		
+		test eax, eax
+		jnz sprintf_insertFlat_internal_whole_loop_start
+		
+	mov dword[ebp+20], edi
+	
+	
+	;flip the whole part
+	mov esi, edi
+	sub esi, dword[ebp-16]
+	dec edi
+	mov ebx, dword[ebp-16]
+	shr ebx, 1
+	test ebx, ebx
+	jz sprintf_insertFlat_internal_whole_flip_loop_end
+	sprintf_insertFlat_internal_whole_flip_loop_start:
+		mov al, byte[esi]
+		mov cl, byte[edi]
+		mov byte[esi], cl
+		mov byte[edi], al
+		inc esi
+		dec edi
+		dec ebx
+		jnz sprintf_insertFlat_internal_whole_flip_loop_start
+	sprintf_insertFlat_internal_whole_flip_loop_end:
+	
+	;print the comma
+	mov eax, dword[ebp+20]
+	mov byte[eax], ','
+	inc dword[ebp+20]
+	inc dword[ebp-12]
+	
+	;print the fraction part
+	movss xmm0, dword[ebp-8]
+	movss xmm1, dword[ebp-4]
+	mulss xmm0, xmm1
+	roundss xmm0, xmm0, 0
+	cvtss2si eax, xmm0
+	mov dword[ebp-20], eax
+	
+	mov dword[ebp-16], 0
+	mov ebx, PRINTF_FLOAT_PRECISION
+	mov eax, dword[ebp-20]
+	mov edi, dword[ebp+20]
+	cmp ebx, 0
+	jle sprintf_insertFlat_internal_fraction_loop_end
+	sprintf_insertFlat_internal_fraction_loop_start:
+		xor edx, edx
+		mov ecx, 10
+		idiv ecx
+		add dl, '0'
+		
+		mov byte[edi], dl
+		
+		inc edi
+		inc dword[ebp-12]
+		inc dword[ebp-16]
+		
+		dec ebx
+		jnz sprintf_insertFlat_internal_fraction_loop_start
+		
+	sprintf_insertFlat_internal_fraction_loop_end:
+	
+	;flip the fraction part
+	mov esi, dword[ebp+20]
+	mov edi, dword[ebp-16]
+	lea edi, [esi+edi-1]
+	mov ebx, dword[ebp-16]
+	shr ebx, 1
+	test ebx, ebx
+	jz sprintf_insertFlat_internal_fraction_flip_loop_end
+	sprintf_insertFlat_internal_fraction_flip_loop_start:
+		mov al, byte[esi]
+		mov cl, byte[edi]
+		mov byte[esi], cl
+		mov byte[edi], al
+		inc esi
+		dec edi
+		dec ebx
+		jnz sprintf_insertFlat_internal_fraction_flip_loop_start
+	sprintf_insertFlat_internal_fraction_flip_loop_end:
+	
+	sprintf_insertFlat_internal_end:
+	mov eax, dword[ebp-12]
+	
+	mov esp, ebp
+	pop ebx
+	pop edi
+	pop esi
+	pop ebp
+	ret
