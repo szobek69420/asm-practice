@@ -10,6 +10,8 @@
 
 section .rodata use32
 
+	ZERO dd 0.0
+
 	error_create_invalid_length db "vec_create: %d is not a valid vector length",10,0
 	error_resize_invalid_length db "vec_resize: %d is not a valid vector length",10,0
 
@@ -18,6 +20,9 @@ section .text use32
 	global vec_create		;vec* vec_create(int length)
 	global vec_destroy		;void vec_destroy(vec*)
 	global vec_resize		;void vec_resize(vec*, int length)
+	
+	global vec_get			;float vec_get(vec*, int)			;returns the value in xmm0
+	global vec_set			;void vec_set(vec*, int, float)
 	
 	extern malloc
 	extern free
@@ -160,6 +165,78 @@ vec_resize:
 	ret
 	
 	
+vec_get:
+	push ebp
+	mov ebp, esp
+	
+	test dword[ebp+8], 0xffffffff
+	jnz vec_get_not_null
+		push error_get_vector_null
+		call printf
+		xorps xmm0, xmm0
+		jmp vec_get_end
+	vec_get_not_null:
+	
+	push dword[ebp+12]
+	push dword[ebp+8]
+	call vec_isValidIndex_internal
+	xorps xmm0, xmm0
+	test eax, eax
+	jz vec_get_end
+	
+	mov eax, dword[ebp+8]
+	mov ecx, dword[ebp+12]
+	mov eax, dword[eax+4]
+	movss xmm0, dword[eax+4*ecx]
+	
+	vec_get_end:
+	mov esp, ebp
+	pop ebp
+	ret
+	error_get_vector_null db "vec_get: vector is NULL",10,0
+	error_get_invalid_index db "vec_get: %d is not a valid index for a vector of size %d",10,0
+	
+	
+vec_set:
+	push ebp
+	mov ebp, esp
+	
+	test dword[ebp+8], 0xffffffff
+	jnz vec_set_not_null
+		push error_set_vector_null
+		call printf
+		jmp vec_set_end
+	
+	vec_set_not_null:
+	
+	push dword[ebp+12]
+	push dword[ebp+8]
+	call vec_isValidIndex_internal
+	test eax, eax
+	jnz vec_set_valid_index
+		mov eax, dword[ebp+8]
+		push dword[eax]
+		push dword[ebp+12]
+		push error_set_invalid_index
+		call printf
+		jmp vec_set_end
+		
+	vec_set_valid_index:
+	
+	mov eax, dword[ebp+8]
+	mov eax, dword[eax+4]
+	mov ecx, dword[ebp+12]
+	mov edx, dword[ebp+16]
+	
+	mov dword[eax+4*ecx], edx
+	
+	vec_set_end:
+	mov esp, ebp
+	pop ebp
+	ret
+	error_set_vector_null db "vec_set: vector is NULL",10,0
+	error_set_invalid_index db "vec_set: %d is not a valid index for a vector of size %d",10,0
+	
 	
 ;internal funcitons
 
@@ -180,4 +257,21 @@ vec_calculateHelperValues_internal:
 	
 	mov esp, ebp
 	pop ebp
+	ret
+	
+	
+;int vec_isValidIndex_internal(Vec*, int)
+vec_isValidIndex_internal:
+	xor eax, eax
+	
+	mov ecx, dword[esp+4]
+	mov edx, dword[esp+8]
+	cmp edx, 0
+	jl vec_isValidIndex_internal_end
+	cmp edx, dword[ecx]
+	jge vec_isValidIndex_internal_end
+	
+	mov eax, 67
+	
+	vec_isValidIndex_internal_end:
 	ret
