@@ -3,17 +3,25 @@
 section .rodata use32
 	PRINTF_FLOAT_PRECISION equ 3
 	
-	insert_string_format db "%s",0
-	insert_char_format db "%c",0
-	insert_signed_int_format db "%d",0
-	insert_float_format db "%f",0
+	format_string db "%s",0
+	format_char db "%c",0
+	format_signed_int db "%d",0
+	format_float db "%f",0
 	
 	insert_handlers:	;int insert_handler(char* buffer, void* addrInsertee), returns the number of new characters in the buffer
 		;handler, format string length, format string address, insertee length
-		dd sprintf_insertString_internal, 2, insert_string_format, 4
-		dd sprintf_insertChar_internal, 2, insert_char_format, 4		;note that a char is also 4 bytes in the argument list
-		dd sprintf_insertSignedInt_internal, 2, insert_signed_int_format, 4
-		dd sprintf_insertFloat_internal, 2, insert_float_format, 4
+		dd sprintf_insertString_internal, 2, format_string, 4
+		dd sprintf_insertChar_internal, 2, format_char, 4		;note that a char is also 4 bytes in the argument list
+		dd sprintf_insertSignedInt_internal, 2, format_signed_int, 4
+		dd sprintf_insertFloat_internal, 2, format_float, 4
+		dd 0
+		
+	read_handlers:		;int read_handler(char* buffer, void* addrReadee), returns the number of read characters in the buffer, -1 if a problem occured
+		;handler, format string length, format string address, readee length
+		dd sscanf_readString_internal, 2, format_string, 4
+		dd sscanf_readChar_internal, 2, format_char, 4
+		dd sscanf_readSignedInt_internal, 2, format_signed_int, 4
+		dd sscanf_readFloat_internal, 2, format_float, 4
 		dd 0
 	
 	P10 dd 0.1
@@ -21,10 +29,15 @@ section .rodata use32
 section .text use32
 
 	extern memcmp
+	
+	extern ctype_isDigit
+	extern ctype_isSpaceOrZero
+	
 	extern console_bookmark
 
 	global strlen		;int strlen(const char* string)
 	global sprintf		;int sprintf(char* buffer, const char* format, ...)
+	global sscanf		;int sscanf(const char* buffer, const char* format, ...)
 
 	strlen:
 		mov ecx, dword[esp+4]
@@ -397,6 +410,273 @@ sprintf_insertFloat_internal:
 	
 	sprintf_insertFlat_internal_end:
 	mov eax, dword[ebp-12]
+	
+	mov esp, ebp
+	pop ebx
+	pop edi
+	pop esi
+	pop ebp
+	ret
+	
+;int func(char*, char**)	
+sscanf_readString_internal:
+	push ebp
+	push esi
+	push edi
+	push ebx
+	mov ebp, esp
+	
+	sub esp, 4		;chars read		4
+	
+	mov dword[ebp-4], 0
+	
+	mov esi, dword[ebp+20]
+	mov edi, dword[ebp+24]
+	mov edi, dword[edi]
+	sscanf_readString_internal_loop_start:
+		movzx eax, byte[esi]
+		push eax
+		call ctype_isSpaceOrZero
+		add esp, 4
+		test eax, eax
+		jnz sscanf_readString_internal_loop_end
+		
+		movsb
+		inc dword[ebp-4]
+		jmp sscanf_readString_internal_loop_start
+		
+	sscanf_readString_internal_loop_end:
+	
+	mov byte[edi], 0		;close the string
+	
+	mov eax, dword[ebp-4]
+	
+	mov esp, ebp
+	pop ebx
+	pop edi
+	pop esi
+	pop ebp
+	ret
+	
+
+;int func(char*, char**)
+sscanf_readChar_internal:
+	push ebp
+	mov ebp, esp
+	
+	sub esp, 4		;read coutn
+	
+	mov dword[ebp-4], -1
+	
+	mov eax, dword[ebp+8]
+	test byte[eax], 0xff
+	jz sscanf_readChar_internal_end
+	
+	mov ecx, dword[ebp+12]
+	mov ecx, dword[ecx]
+	mov dl, byte[eax]
+	mov byte[ecx], dl
+	
+	mov dword[ebp-4], 1
+	
+	sscanf_readChar_internal_end:
+	mov eax, dword[ebp-4]
+	
+	mov esp, ebp
+	pop ebp
+	ret
+	
+	
+;int func(char*, int**)
+sscanf_readSignedInt_internal:
+	push ebp
+	push esi
+	push edi
+	push ebx
+	mov ebp, esp
+	
+	sub esp, 4		;is negative		4
+	sub esp, 4		;number abs			8
+	sub esp, 4		;chars read			12
+	
+	mov dword[ebp-4], 0
+	mov dword[ebp-8], 0
+	mov dword[ebp-12], 0
+	
+	mov esi, dword[ebp+20]
+	sscanf_readSignedInt_internal_loop_start:
+		cmp byte[esi], '-'
+		jne sscanf_readSingedInt_internal_loop_not_minus
+			test dword[ebp-12], 0xffffffff
+			jnz sscanf_readSignedInt_internal_loop_end
+			mov dword[ebp-4], 67
+			jmp sscanf_readSignedInt_internal_loop_continue
+		sscanf_readSingedInt_internal_loop_not_minus:
+		
+		movzx eax, byte[esi]
+		push eax
+		call ctype_isDigit
+		pop ecx
+		test eax, eax
+		jz sscanf_readSignedInt_internal_loop_end
+		
+		sub ecx, '0'
+		mov edx, dword[ebp-8]
+		imul edx, 10
+		add edx, ecx
+		mov dword[ebp-8], edx
+		
+		sscanf_readSignedInt_internal_loop_continue:
+		inc dword[ebp-12]
+		inc esi
+		jmp sscanf_readSignedInt_internal_loop_start
+	sscanf_readSignedInt_internal_loop_end:
+
+	;check if the read was successful
+	test dword[ebp-12], 0xffffffff
+	jnz sscanf_readSignedInt_internal_success
+		mov dword[ebp-12], -1
+		jmp sscanf_readSignedInt_internal_end
+	sscanf_readSignedInt_internal_success:
+	
+	;write the number
+	mov ecx, dword[ebp-4]
+	test ecx, ecx
+	jz sscanf_readSingedInt_internal_not_negative
+		neg ecx
+	sscanf_readSingedInt_internal_not_negative:
+	
+	mov edx, dword[ebp+24]
+	mov edx, dword[edx]
+	mov dword[edx], ecx
+	
+	sscanf_readSignedInt_internal_end:
+	mov eax, dword[ebp-12]
+	
+	mov esp, ebp
+	pop ebx
+	pop edi
+	pop esi
+	pop ebp
+	ret
+	
+	
+;int sscanf_readFloat_internal(char* buffer, float** pp)
+sscanf_readFloat_internal:
+	push ebp
+	push esi
+	push edi
+	push ebx
+	mov ebp, esp
+	
+	sub esp, 4		;chars read				4
+	sub esp, 4		;whole chars read		8
+	sub esp, 4		;fractional chars read	12
+	
+	sub esp, 4		;whole part as int		16
+	sub esp, 4		;fractional part as int	20
+	
+	sub esp, 4		;sign read				24
+	sub esp, 4		;decimal point read		28
+	
+	mov dword[ebp-4], 0
+	mov dword[ebp-8], 0
+	mov dword[ebp-12], 0
+	mov dword[ebp-16], 0
+	mov dword[ebp-20], 0
+	mov dword[ebp-24], 0
+	mov dword[ebp-28], 0
+	
+	mov esi, dword[ebp+20]
+	sscanf_readFloat_internal_loop_start:
+		;minus sign
+		cmp byte[esi], '-'
+		jne sscanf_readFloat_internal_loop_not_minus
+			test dword[ebp-4], 0xffffffff
+			jnz sscanf_readFloat_internal_loop_end
+			mov dword[ebp-24], 0x80000000				;this is a mask, the number matters
+			jmp sscanf_readFloat_internal_loop_continue
+		sscanf_readFloat_internal_loop_not_minus:
+		
+		;decimal point
+		cmp byte[esi], '.'
+		jne sscanf_readFloat_internal_loop_not_point
+			test dword[ebp-28], 0xffffffff
+			jnz sscanf_readFloat_internal_loop_end
+			mov dword[ebp-28], 67
+			jmp sscanf_readFloat_internal_loop_continue
+		sscanf_readFloat_internal_loop_not_point:
+		
+		;digit
+		movzx eax, byte[esi]
+		push eax
+		call ctype_isDigit
+		add esp, 4
+		test eax, eax
+		jz sscanf_readFloat_internal_loop_end
+		
+		test dword[ebp-28], 0xffffffff
+		jnz sscanf_readFloat_internal_loop_digit_fraction
+			mov al, byte[esi]
+			sub al, '0'
+			movzx eax, al
+			
+			mov ecx, dword[ebp-16]
+			imul ecx, 10
+			add ecx, eax
+			mov dword[ebp-16], ecx
+			
+			inc dword[ebp-8]
+			jmp sscanf_readFloat_internal_loop_continue
+			
+		sscanf_readFloat_internal_loop_digit_fraction:
+			mov al, byte[esi]
+			sub al, '0'
+			movzx eax, al
+			
+			mov ecx, dword[ebp-20]
+			imul ecx, 10
+			add ecx, eax
+			mov dword[ebp-20], ecx
+			
+			inc dword[ebp-12]
+		
+		sscanf_readFloat_internal_loop_continue:
+		inc dword[ebp-4]
+		inc esi
+		jmp sscanf_readFloat_internal_loop_start
+	sscanf_readFloat_internal_loop_end:
+	
+	;check if the read was successful
+	test dword[ebp-8], 0xffffffff
+	jnz sscanf_readFloat_internal_successful_read
+	test dword[ebp-12], 0xffffffff
+	jnz sscanf_readFloat_internal_successful_read
+		mov dword[ebp-4], -1
+		jmp sscanf_readFloat_internal_end
+	sscanf_readFloat_internal_successful_read:
+	
+	;construct the float
+	cvtsi2ss xmm0, dword[ebp-16]
+	
+	cvtsi2ss xmm1, dword[ebp-20]
+	movss xmm2, dword[P10]
+	mov ebx, dword[ebp-12]
+	cmp ebx, 0
+	jle sscanf_readFloat_internal_convert_fraction_loop_end
+	sscanf_readFloat_internal_convert_fraction_loop_start:
+		mulss xmm1, xmm2
+		dec ebx
+		jnz sscanf_readFloat_internal_convert_fraction_loop_start
+	sscanf_readFloat_internal_convert_fraction_loop_end:
+	
+	addss xmm0, xmm1
+	mov ecx, dword[ebp+24]
+	mov ecx, dword[ecx]
+	movss dword[ecx], xmm0
+	
+	sscanf_readFloat_internal_end:
+	mov eax, dword[ebp-4]
 	
 	mov esp, ebp
 	pop ebx

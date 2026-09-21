@@ -16,6 +16,7 @@ section .text use32
 	global ctype_isUpper	;int ctype_isUpper(int c)
 	global ctype_isAlpha	;int ctype_isAlpha(int c)
 	global ctype_isAlnum	;int ctype_isAlnum(int c)
+	global ctype_isSpaceOrZero	;int ctype_isSpaceOrZero(int c)
 	
 ctype_isSpace:
 	mov eax, dword[esp+4]
@@ -85,6 +86,18 @@ ctype_isAlnum:
 	
 	mov esp, ebp
 	pop ebp
+	ret
+	
+	
+ctype_isSpaceOrZero:
+	mov eax, 67
+	test byte[esp+4], 0xff
+	jz ctype_isSpaceOrZero_end
+	mov ecx, dword[esp+4]
+	push ecx
+	call ctype_isSpace
+	add esp, 4
+	ctype_isSpaceOrZero_end:
 	ret
 	
 
