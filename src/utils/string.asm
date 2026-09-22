@@ -124,7 +124,91 @@ section .text use32
 		pop esi
 		pop ebp
 		ret
+
+
+sscanf:
+	push ebp
+	push esi
+	push edi
+	push ebx
+	mov ebp, esp
+	
+	sub esp, 4			;args read					4
+	sub esp, 4			;next arg offset from ebp	8
+	
+	mov dword[ebp-4], 0
+	mov dword[ebp-8], 28
+	
+	mov esi, dword[ebp+20]		;buffer
+	mov edi, dword[ebp+24]		;format
+	sscanf_loop_start:
+		;check if either of the strings is finished
+		test byte[esi], 0xff
+		jz sscanf_loop_end
+		test byte[edi], 0xff
+		jz sscanf_loop_end
+		;check if a special sequence comes
+		cmp byte[edi], '%'
+		jne sscanf_loop_not_special
+			mov ebx, read_handlers
+			sscanf_loop_read_loop_start:
+				;handlers are done?
+				test dword[ebx], 0xffffffff
+				jz sscanf_loop_end
+				
+				;check if the special string is this one
+				push dword[ebx+4]
+				push dword[ebx+8]
+				push edi
+				call memcmp
+				add esp, 12
+				
+				test eax, eax
+				jnz sscanf_loop_read_loop_continue
+					;do the handling
+					mov eax, dword[ebp-8]
+					add eax, ebp
+					
+					push eax
+					push esi
+					call dword[ebx]
+					add esp, 8
+					
+					cmp eax, -1
+					je sscanf_loop_end
+					
+					inc dword[ebp-4]
+					mov ecx, dword[ebx+12]
+					add dword[ebp-8], ecx
+					
+					add esi, eax
+					add edi, dword[ebx+4]
+					jmp sscanf_loop_continue		;jump to outer loop
+					
+				sscanf_loop_read_loop_continue:
+				add ebx, 16
+				jmp sscanf_loop_read_loop_start
+		sscanf_loop_not_special:
+			;check if the next characters match
+			cld
+			cmpsb
+			jne sscanf_loop_end
+			
+		sscanf_loop_continue:
+		jmp sscanf_loop_start
+	sscanf_loop_end:
+	
+	mov eax, dword[ebp-4]
+	
+	mov esp, ebp
+	pop ebx
+	pop edi
+	pop esi
+	pop ebp
+	ret
+
 		
+;internal functions
 		
 	sprintf_insertString_internal:
 		push ebp

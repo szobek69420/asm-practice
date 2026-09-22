@@ -26,7 +26,8 @@ section .bss use32
 	printf_buffer resb 2048
 
 section .data use32
-	std_handle dd 0
+	stdin_handle dd 0
+	stdout_handle dd 0
 	
 section .text use32
 	
@@ -38,6 +39,7 @@ section .text use32
 	extern memcpy
 	
 	global printf
+	global scanf				;int scanf(const char*, ...)
 	global console_bookmark		;void console_bookmark()	//detached from every other console utils, prints a small message for debugging
 	
 printf:		;NOTE: this function is not at all thread-safe
@@ -110,11 +112,11 @@ printf:		;NOTE: this function is not at all thread-safe
 	
 	
 	;printf the string to the console
-	test dword[std_handle], 0xffffffff
+	test dword[stdout_handle], 0xffffffff
 	jnz printf_skip_std_handle_query
 		push -11
 		call [GetStdHandle]
-		mov dword[std_handle], eax
+		mov dword[stdout_handle], eax
 	printf_skip_std_handle_query:
 	
 	push 0
@@ -122,7 +124,7 @@ printf:		;NOTE: this function is not at all thread-safe
 	push eax
 	push dword[ebp-4]
 	push printf_buffer
-	push dword[std_handle]
+	push dword[stdout_handle]
 	call [WriteFile]
 	
 	

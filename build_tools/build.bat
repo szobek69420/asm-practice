@@ -12,6 +12,7 @@ mkdir build
 
 %COMMAND% -fobj src/main.asm -o build/main.o
 %COMMAND% -fobj src/utils/memory.asm -o build/memory.o
+%COMMAND% -fobj src/utils/file.asm -o build/file.o
 %COMMAND% -fobj src/utils/console.asm -o build/console.o
 %COMMAND% -fobj src/utils/string.asm -o build/string.o
 %COMMAND% -fobj src/utils/ctype.asm -o build/ctype.o
@@ -20,6 +21,7 @@ mkdir build
 .\build_tools\alink.exe -subsys console -oPE ^
 build/main.o ^
 build/memory.o ^
+build/file.o ^
 build/console.o ^
 build/string.o ^
 build/ctype.o ^
