@@ -6,16 +6,16 @@
 %endmacro
 
 section .rodata use32
-	printf_argument_format_string db "%s"
-	printf_argument_format_char db "%c"
-	printf_argument_format_signed_int db "%d"
-	printf_argument_format_float db "%f"
+	argument_format_string db "%s"
+	argument_format_char db "%c"
+	argument_format_signed_int db "%d"
+	argument_format_float db "%f"
 
-	printf_arguments:	;format string, format string length, argument length
-	dd printf_argument_format_string, 2, 4
-	dd printf_argument_format_char, 2, 4
-	dd printf_argument_format_signed_int, 2, 4
-	dd printf_argument_format_float, 2, 4
+	arguments:	;format string, format string length, argument length
+	dd argument_format_string, 2, 4
+	dd argument_format_char, 2, 4
+	dd argument_format_signed_int, 2, 4
+	dd argument_format_float, 2, 4
 	dd 0
 	
 	error_invalid_format_string db "printf: Invalid format string",10,0
@@ -82,39 +82,12 @@ printf:		;NOTE: this function is not at all thread-safe
 	mov dword[ebp-12], 0
 	
 	;determine the size of the arguments
-	mov esi, dword[ebp+20]
-	printf_argument_loop_start:
-		test byte[esi], 0xff
-		jz printf_argument_loop_end
-		cmp byte[esi], '%'
-		jne printf_argument_loop_continue
-			mov edi, printf_arguments
-			printf_argument_loop_inner_start:
-				test dword[edi], 0xffffffff
-				jz printf_error_invalid_format_string
-				push dword[edi+4]
-				push dword[edi]
-				push esi
-				call memcmp
-				add esp, 12
-				test eax, eax
-				jnz printf_argument_loop_inner_continue
-					mov eax, dword[edi+8]
-					add dword[ebp-12], eax
-					add esi, dword[edi+4]
-					dec esi					;esi is incremented at continue
-					jmp printf_argument_loop_inner_end
-					
-				printf_argument_loop_inner_continue:
-				add edi, 12
-				jmp printf_argument_loop_inner_start
-			printf_argument_loop_inner_end:
-		
-		printf_argument_loop_continue:
-		inc esi
-		jmp printf_argument_loop_start
-		
-	printf_argument_loop_end:
+	push dword[ebp+20]
+	call console_formatArgumentSize_internal
+	add esp, 4
+	mov dword[ebp-12], eax
+	cmp dword[ebp-12], -1
+	je printf_error_invalid_format_string
 	
 	;call sprintf
 	sub esp, dword[ebp-12]
@@ -127,14 +100,12 @@ printf:		;NOTE: this function is not at all thread-safe
 	call memcpy
 	add esp, 12
 	
-	
 	push dword[ebp+20]
 	push printf_buffer
 	call sprintf
 	mov dword[ebp-4], eax
 	add esp, 8
 	add esp, dword[ebp-12]
-	
 	
 	;printf the string to the console
 	call stdout
@@ -171,7 +142,26 @@ printf:		;NOTE: this function is not at all thread-safe
 		mov dword[ebp-16], -67
 		jmp printf_end
 		
-		
+scanf:
+	push ebp
+	push esi
+	push edi
+	push ebx
+	mov ebp, esp
+	
+	sub esp, 4		;sum size of args		4
+	
+	
+	
+	mov esp, ebp
+	pop ebx
+	pop edi
+	pop esi
+	pop ebp
+	ret
+	
+	
+	
 console_bookmark:
 	push eax
 	push ecx
@@ -190,4 +180,74 @@ console_bookmark:
 	pop edx
 	pop ecx
 	pop eax
+	ret
+	
+	
+;internal functions
+
+;int console_formatArgumentSize_internal(const char* format)		//calculates the size of arguments that a format indicates. returns -1 on invalid format
+console_formatArgumentSize_internal:
+	push ebp
+	push esi
+	push edi
+	push ebx
+	mov ebp, esp
+	
+	sub esp, 4			;argument count		4
+	sub esp, 4			;argument size		8
+	
+	mov dword[ebp-4], 0
+	mov dword[ebp-8], 0
+	
+	mov esi, dword[ebp+20]
+	xor edi, edi
+	console_formatArgumentSize_internal_loop_start:
+		test byte[esi+edi], 0xff
+		jz console_formatArgumentSize_internal_loop_end
+		cmp byte[esi+edi], '%'
+		jne console_formatArgumentSize_internal_loop_continue
+			;check for the type of argument
+			mov ebx, arguments
+			console_formatArgumentSize_internal_inner_loop_start:
+				test dword[ebx], 0xffffffff
+				jz console_formatArgumentSize_internal_inner_loop_end
+					lea eax, [esi+edi]
+					push dword[ebx+4]
+					push dword[ebx]
+					push eax
+					call memcmp
+					add esp, 12
+					test eax, eax
+					jnz console_formatArgumentSize_internal_inner_loop_continue
+					
+					inc dword[ebp-4]
+					mov ecx, dword[ebx+8]
+					add dword[ebp-8], ecx
+					
+					add edi, dword[ebx+4]
+					dec edi
+					jmp console_formatArgumentSize_internal_loop_continue	;note that this jumps to the outer loop
+				
+				console_formatArgumentSize_internal_inner_loop_continue:
+				add ebx, 12
+				jmp console_formatArgumentSize_internal_inner_loop_start
+			console_formatArgumentSize_internal_inner_loop_end:
+			;if we're here, problemo
+			mov dword[ebp-4], -1
+			mov dword[ebp-8], -1
+			jmp console_formatArgumentSize_internal_loop_end
+		
+		console_formatArgumentSize_internal_loop_continue:
+		inc edi
+		jmp console_formatArgumentSize_internal_loop_start
+	console_formatArgumentSize_internal_loop_end:
+	
+	console_formatArgumentSize_internal_end:
+	mov eax, dword[ebp-8]
+	
+	mov esp, ebp
+	pop ebx
+	pop edi
+	pop esi
+	pop ebp
 	ret

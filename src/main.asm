@@ -7,7 +7,7 @@
 
 section .rodata use32
 	test_text db "sussy nigga",0
-	test_text2 db "%s",10,0
+	test_text2 db "%s%s",10,0
 	test_text3 db "%d bomboclat pussywagon chicken nuggets",0
 	test_text4 db "hello neighbour %f",0
 	test_text5 db "my name is %c",0
@@ -41,14 +41,16 @@ section .text use32
 		push string_buffer
 		call fgets
 		
+		push test_text
 		push test_text2
 		call printf
-		add esp, 4
+		add esp, 8
 		
 		call fgets
+		push test_text
 		push test_text2
 		call printf
-		add esp, 4
+		add esp, 8
 
 		
 		mov esp, ebp
