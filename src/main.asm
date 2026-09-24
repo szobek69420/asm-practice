@@ -7,7 +7,7 @@
 
 section .rodata use32
 	test_text db "sussy nigga",0
-	test_text2 db "amogus %s nigga",0
+	test_text2 db "%s",10,0
 	test_text3 db "%d bomboclat pussywagon chicken nuggets",0
 	test_text4 db "hello neighbour %f",0
 	test_text5 db "my name is %c",0
@@ -22,6 +22,8 @@ section .text use32
 	dll_import kernel32.dll, ExitProcess
 	
 	extern printf
+	extern stdin
+	extern fgets
 	extern console_bookmark
 	
 	..start:
@@ -33,10 +35,20 @@ section .text use32
 		sub esp, 4		;string length
 	
 		
-		push 97
-		push test_text5
+		call stdin
+		push eax
+		push 10
+		push string_buffer
+		call fgets
+		
+		push test_text2
 		call printf
-		add esp, 8
+		add esp, 4
+		
+		call fgets
+		push test_text2
+		call printf
+		add esp, 4
 
 		
 		mov esp, ebp

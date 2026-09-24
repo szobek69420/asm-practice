@@ -76,9 +76,10 @@ fgets:
 	call [ReadFile]
 	
 	test eax, eax
-	jz fgets_read_successful
+	jz fgets_read_unsuccessful
 	test dword[ebp-4], 0xffffffff
 	jz fgets_read_unsuccessful
+	jmp fgets_read_successful
 	fgets_read_unsuccessful:
 		mov dword[ebp-8], 0
 		jmp fgets_end
@@ -141,7 +142,7 @@ fgets:
 		mov byte[esi+edx], 0
 		jmp fgets_zero_placed
 	fgets_zero_no_line_end:
-		mov byte[esi], 0
+		mov byte[esi+edi], 0
 	fgets_zero_placed:
 	
 	fgets_end:

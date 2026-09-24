@@ -38,9 +38,34 @@ section .text use32
 	extern memcmp
 	extern memcpy
 	
+	global stdin				;HANDLE stdin()
+	global stdout				;HANDLE stdout()
+	
 	global printf
 	global scanf				;int scanf(const char*, ...)
 	global console_bookmark		;void console_bookmark()	//detached from every other console utils, prints a small message for debugging
+	
+stdin:
+	mov eax, dword[stdin_handle]
+	test eax, eax
+	jnz stdin_end
+		push -10
+		call [GetStdHandle]
+		mov dword[stdin_handle], eax
+	stdin_end:
+	ret
+	
+	
+stdout:
+	mov eax, dword[stdout_handle]
+	test eax, eax
+	jnz stdout_end
+		push -11
+		call [GetStdHandle]
+		mov dword[stdout_handle], eax
+	stdout_end:
+	ret
+	
 	
 printf:		;NOTE: this function is not at all thread-safe
 	push ebp
@@ -112,12 +137,7 @@ printf:		;NOTE: this function is not at all thread-safe
 	
 	
 	;printf the string to the console
-	test dword[stdout_handle], 0xffffffff
-	jnz printf_skip_std_handle_query
-		push -11
-		call [GetStdHandle]
-		mov dword[stdout_handle], eax
-	printf_skip_std_handle_query:
+	call stdout
 	
 	push 0
 	lea eax, [ebp-8]
