@@ -439,7 +439,7 @@ sprintf_insertFloat_internal:
 	
 	;print the comma
 	mov eax, dword[ebp+20]
-	mov byte[eax], ','
+	mov byte[eax], '.'
 	inc dword[ebp+20]
 	inc dword[ebp-12]
 	
@@ -759,6 +759,11 @@ sscanf_readFloat_internal:
 	mov ecx, dword[ebp+24]
 	mov ecx, dword[ecx]
 	movss dword[ecx], xmm0
+	
+	test dword[ebp-24], 0xffffffff
+	jz sscanf_readFloat_internal_not_negative
+		or dword[ecx], 0x80000000
+	sscanf_readFloat_internal_not_negative:
 	
 	sscanf_readFloat_internal_end:
 	mov eax, dword[ebp-4]

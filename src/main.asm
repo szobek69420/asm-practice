@@ -12,6 +12,10 @@ section .rodata use32
 	test_text4 db "hello neighbour %f",0
 	test_text5 db "my name is %c",0
 	test_text6 db "%d",0
+	test_text7 db "%s",10,0
+	test_text8 db "%c",10,0
+	test_text9 db "%f",10,0
+	test_text10 db "%s %f",10,0
 	
 	sus dd -6744.06742
 	
@@ -33,17 +37,22 @@ section .text use32
 		mov ebp, esp
 	
 		sub esp, 4		;arg
+		sub esp, 4		;arg2
 	
 		finit
 	
+		mov dword[ebp-4], 0
+		mov dword[ebp-8], 0
 		
 		lea eax, [ebp-4]
 		push eax
-		push test_text6
+		push string_buffer
+		push test_text10
 		call scanf
 		
 		push dword[ebp-4]
-		push test_text6
+		push string_buffer
+		push test_text10
 		call printf
 
 		
