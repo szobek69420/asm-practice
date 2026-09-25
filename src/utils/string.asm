@@ -272,6 +272,7 @@ sprintf_insertSignedInt_internal:
 	mov dword[ebp-4], 0
 	mov dword[ebp-12], 0
 	
+	
 	mov eax, dword[ebp+24]
 	mov eax, dword[eax]
 	mov dword[ebp-8], eax
@@ -624,8 +625,8 @@ sscanf_readSignedInt_internal:
 	sscanf_readSignedInt_internal_success:
 	
 	;write the number
-	mov ecx, dword[ebp-4]
-	test ecx, ecx
+	mov ecx, dword[ebp-8]
+	test dword[ebp-4], 0xffffffff
 	jz sscanf_readSingedInt_internal_not_negative
 		neg ecx
 	sscanf_readSingedInt_internal_not_negative:

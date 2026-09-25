@@ -24,6 +24,7 @@ section .rodata use32
 
 section .bss use32
 	printf_buffer resb 2048
+	scanf_buffer resb 2048
 
 section .data use32
 	stdin_handle dd 0
@@ -35,8 +36,11 @@ section .text use32
 	dll_import kernel32.dll, WriteFile
 	
 	extern sprintf
+	extern sscanf
 	extern memcmp
 	extern memcpy
+	
+	extern fgets
 	
 	global stdin				;HANDLE stdin()
 	global stdout				;HANDLE stdout()
@@ -150,8 +154,53 @@ scanf:
 	mov ebp, esp
 	
 	sub esp, 4		;sum size of args		4
+	sub esp, 4		;args read				8
 	
+	mov dword[ebp-8], 0
 	
+	;get a line from the console
+	call stdin
+	push eax
+	push 2048
+	push scanf_buffer
+	call fgets
+	test eax, eax
+	jnz scanf_line_read_successful
+		mov dword[ebp-8], -1
+		jmp scanf_end
+	scanf_line_read_successful:
+	
+	;calculate the arguments to copy
+	push dword[ebp+20]
+	call console_formatArgumentSize_internal
+	mov dword[ebp-4], eax
+	cmp eax, -1
+	jne scanf_valid_format
+		mov dword[ebp-8], -1
+		jmp scanf_end
+	scanf_valid_format:
+
+	
+	;copy the arguments onto the params of sscanf
+	sub esp, dword[ebp-4]
+	mov eax, esp
+	lea ecx, [ebp+24]
+	
+	push dword[ebp-4]
+	push ecx
+	push eax
+	call memcpy
+	add esp, 12
+	
+	;call sscanf
+	push dword[ebp+20]
+	push scanf_buffer
+	call sscanf
+	mov dword[ebp-8], eax
+
+	
+	scanf_end:
+	mov eax, dword[ebp-8]
 	
 	mov esp, ebp
 	pop ebx

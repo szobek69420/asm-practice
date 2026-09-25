@@ -11,6 +11,7 @@ section .rodata use32
 	test_text3 db "%d bomboclat pussywagon chicken nuggets",0
 	test_text4 db "hello neighbour %f",0
 	test_text5 db "my name is %c",0
+	test_text6 db "%d",0
 	
 	sus dd -6744.06742
 	
@@ -22,6 +23,7 @@ section .text use32
 	dll_import kernel32.dll, ExitProcess
 	
 	extern printf
+	extern scanf
 	extern stdin
 	extern fgets
 	extern console_bookmark
@@ -30,27 +32,19 @@ section .text use32
 		push ebp
 		mov ebp, esp
 	
+		sub esp, 4		;arg
+	
 		finit
-		
-		sub esp, 4		;string length
 	
 		
-		call stdin
+		lea eax, [ebp-4]
 		push eax
-		push 10
-		push string_buffer
-		call fgets
+		push test_text6
+		call scanf
 		
-		push test_text
-		push test_text2
+		push dword[ebp-4]
+		push test_text6
 		call printf
-		add esp, 8
-		
-		call fgets
-		push test_text
-		push test_text2
-		call printf
-		add esp, 8
 
 		
 		mov esp, ebp
