@@ -24,6 +24,8 @@ section .text use32
 	global vec_get			;float vec_get(vec*, int)			;returns the value in xmm0
 	global vec_set			;void vec_set(vec*, int, float)
 	
+	global vec_print		;void vec_print(const vec*)
+	
 	extern malloc
 	extern free
 	extern realloc
@@ -236,6 +238,61 @@ vec_set:
 	ret
 	error_set_vector_null db "vec_set: vector is NULL",10,0
 	error_set_invalid_index db "vec_set: %d is not a valid index for a vector of size %d",10,0
+	
+	
+vec_print:
+	push ebp
+	push esi
+	push edi
+	push ebx
+	mov ebp, esp
+	
+	mov dword[ebp-4], 67
+	
+	push vec_print_start
+	call printf
+	
+	mov ebx, dword[ebp+20]
+	mov esi, dword[ebx]
+	mov edi, dword[ebx+4]
+	cmp esi, 0
+	jle vec_print_loop_end
+	vec_print_loop_start:
+		cmp esi, 1
+		je vec_print_loop_last_element
+			push dword[edi]
+			push vec_print_number_not_last
+			call printf
+			add esp, 8
+			jmp vec_print_loop_continue
+			
+		vec_print_loop_last_element:
+			push dword[edi]
+			push vec_print_number_last
+			call printf
+			add esp, 8
+			
+		vec_print_loop_continue:
+		add edi, 4
+		dec esi
+		jnz vec_print_loop_start
+		
+	vec_print_loop_end:
+	
+	push vec_print_finish
+	call printf
+	
+	vec_print_end:
+	mov esp, ebp
+	pop ebx
+	pop edi
+	pop esi
+	pop ebp
+	ret
+	vec_print_number_not_last db "%f; ",0
+	vec_print_number_last db "%f",0
+	vec_print_start db "(",0
+	vec_print_finish db ")",10,0
 	
 	
 ;internal funcitons

@@ -32,29 +32,29 @@ section .text use32
 	extern fgets
 	extern console_bookmark
 	
+	extern vec_create
+	extern vec_destroy
+	extern vec_print
+	
 	..start:
 		push ebp
 		mov ebp, esp
 	
-		sub esp, 4		;arg
-		sub esp, 4		;arg2
+		sub esp, 4		;vec
 	
 		finit
 	
 		mov dword[ebp-4], 0
-		mov dword[ebp-8], 0
 		
-		lea eax, [ebp-4]
+		push 4
+		call vec_create
+		mov dword[ebp-4], eax
+		
 		push eax
-		push string_buffer
-		push test_text10
-		call scanf
+		call vec_print
+		call vec_destroy
 		
-		push dword[ebp-4]
-		push string_buffer
-		push test_text10
-		call printf
-
+		call console_bookmark
 		
 		mov esp, ebp
 		pop ebp

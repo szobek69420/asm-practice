@@ -212,10 +212,29 @@ scanf:
 	
 	
 console_bookmark:
+	push ebp
+	push esi
+	push edi
+	push ebx
 	push eax
 	push ecx
 	push edx
+	mov ebp, esp
 	
+	;find the 16 byte boundary for the fxsave region
+	mov eax, esp
+	xor edx, edx
+	mov ecx, 16
+	idiv ecx
+	sub esp, edx
+	
+	;save the sse context
+	sub esp, 512
+	
+	mov eax, esp
+	fxsave [eax]
+	
+	;print
 	push -11
 	call [GetStdHandle]
 	
@@ -226,9 +245,18 @@ console_bookmark:
 	push eax
 	call [WriteFile]
 	
+	;restore the sse context
+	mov eax, esp
+	fxrstor [eax]
+	
+	mov esp, ebp
 	pop edx
 	pop ecx
 	pop eax
+	pop ebx
+	pop edi
+	pop esi
+	pop ebp
 	ret
 	
 	
