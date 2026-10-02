@@ -16,6 +16,7 @@ mkdir build
 %COMMAND% -fobj src/utils/console.asm -o build/console.o
 %COMMAND% -fobj src/utils/string.asm -o build/string.o
 %COMMAND% -fobj src/utils/ctype.asm -o build/ctype.o
+%COMMAND% -fobj src/utils/seqtor.asm -o build/seqtor.o
 %COMMAND% -fobj src/linalg/vec.asm -o build/vec.o
 
 .\build_tools\alink.exe -subsys console -oPE ^
@@ -25,6 +26,7 @@ build/file.o ^
 build/console.o ^
 build/string.o ^
 build/ctype.o ^
+build/seqtor.o ^
 build/vec.o ^
 -o build/test.exe
 

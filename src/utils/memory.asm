@@ -87,9 +87,13 @@ section .text use32
 		push ebp
 		mov ebp, esp
 		
-		xor eax, eax
+		;if null pointer is supplied, a new region will be allocated
 		test dword[ebp+8], 0xffffffff
-		jz realloc_end
+		jnz realloc_not_null
+			push dword[ebp+12]
+			call malloc
+			jmp realloc_end
+		realloc_not_null:
 		
 		;get the heap
 		call getHeapHandle_internal
